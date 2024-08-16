@@ -33,30 +33,26 @@ const sessionPayload = {
 };
 
 describe("user", () => {
-  // user registration
-
   describe("user registration", () => {
-    describe("given the username and password are valid", () => {
+    describe("given the user name and password are valid", () => {
       it("should return the user payload", async () => {
         const createUserServiceMock = jest
           .spyOn(UserService, "createUser")
           // @ts-ignore
           .mockReturnValueOnce(userPayload);
 
-        const { statusCode, body } = await supertest(app)
+        const { body, statusCode } = await supertest(app)
           .post("/api/users")
           .send(userInput);
-
         expect(statusCode).toBe(200);
-
-        expect(body).toEqual(userPayload);
-
+        expect(body).toStrictEqual(userPayload);
+        expect(createUserServiceMock).toHaveBeenCalled();
+        expect(createUserServiceMock).toHaveBeenCalledTimes(1);
         expect(createUserServiceMock).toHaveBeenCalledWith(userInput);
       });
     });
-
     describe("given the passwords do not match", () => {
-      it("should return a 400", async () => {
+      it("should return a status 400", async () => {
         const createUserServiceMock = jest
           .spyOn(UserService, "createUser")
           // @ts-ignore
@@ -64,44 +60,40 @@ describe("user", () => {
 
         const { statusCode } = await supertest(app)
           .post("/api/users")
-          .send({ ...userInput, passwordConfirmation: "doesnotmatch" });
-
+          .send({ ...userInput, passwordConfirmation: "notMatch" });
         expect(statusCode).toBe(400);
-
         expect(createUserServiceMock).not.toHaveBeenCalled();
+        expect(createUserServiceMock).toHaveBeenCalledTimes(0);
       });
     });
-
     describe("given the user service throws", () => {
-      it("should return a 409 error", async () => {
+      it("should return a status 409", async () => {
         const createUserServiceMock = jest
           .spyOn(UserService, "createUser")
-          .mockRejectedValueOnce("Oh no! :(");
+          // @ts-ignore
+          .mockRejectedValueOnce("something went wrong !!");
 
-        const { statusCode } = await supertest(createServer())
+        const { statusCode } = await supertest(app)
           .post("/api/users")
           .send(userInput);
-
         expect(statusCode).toBe(409);
-
         expect(createUserServiceMock).toHaveBeenCalled();
+        expect(createUserServiceMock).toHaveBeenCalledTimes(1);
       });
     });
   });
 
-  describe("create user session", () => {
-    describe("given the username and password are valid", () => {
-      it("should return a signed accessToken & refresh token", async () => {
+  describe("Create user session", () => {
+    describe("given the user name and password are valid", () => {
+      it("should return a signed  accessToken and refreshToken", async () => {
         jest
           .spyOn(UserService, "validatePassword")
           // @ts-ignore
-          .mockReturnValue(userPayload);
-
+          .mockReturnValueOnce(userPayload);
         jest
           .spyOn(SessionService, "createSession")
           // @ts-ignore
-          .mockReturnValue(sessionPayload);
-
+          .mockReturnValueOnce(sessionPayload);
         const req = {
           get: () => {
             return "a user agent";
@@ -111,20 +103,19 @@ describe("user", () => {
             password: "Password123",
           },
         };
-
         const send = jest.fn();
-
         const res = {
           send,
         };
-
         // @ts-ignore
         await createUserSessionHandler(req, res);
-
-        expect(send).toHaveBeenCalledWith({
-          accessToken: expect.any(String),
-          refreshToken: expect.any(String),
-        });
+        expect(send).toHaveBeenCalledTimes(1);
+        expect(send).toHaveBeenCalledWith(
+          expect.objectContaining({
+            accessToken: expect.any(String),
+            refreshToken: expect.any(String),
+          })
+        );
       });
     });
   });
